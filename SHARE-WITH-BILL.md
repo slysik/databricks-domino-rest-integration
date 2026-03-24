@@ -24,7 +24,7 @@
 
 **Verify**:
 ```sql
-SELECT COUNT(*) as row_count FROM prd_fold.facts.oe_detail;
+SELECT COUNT(*) as row_count FROM prd_gold.facts.oe_detail;
 -- Should return: 20
 ```
 
@@ -47,11 +47,11 @@ SELECT COUNT(*) as row_count FROM prd_fold.facts.oe_detail;
    https://raw.githubusercontent.com/slysik/databricks-domino-rest-integration/main/scripts/export-sample-data.py
    ```
 3. Paste into the notebook
-4. Run the cell → Table `prd_fold.facts.oe_detail` is created
+4. Run the cell → Table `prd_gold.facts.oe_detail` is created
 
 **Verify**:
 ```sql
-SELECT * FROM prd_fold.facts.oe_detail LIMIT 5;
+SELECT * FROM prd_gold.facts.oe_detail LIMIT 5;
 ```
 
 **Advantages**:
@@ -70,7 +70,7 @@ From your Databricks workspace:
 
 ```python
 # In a notebook cell, run this:
-df = spark.read.table("prd_fold.facts.oe_detail")
+df = spark.read.table("prd_gold.facts.oe_detail")
 
 # Export as CSV
 df.write.mode("overwrite").csv("/Volumes/[catalog]/[volume]/oe_detail_export.csv", header=True)
@@ -88,7 +88,7 @@ Then download from the UI and share with Bill.
 The Java agent queries by **invoice_no** (unique primary key):
 ```sql
 SELECT custno, custname, orderdate, shipdate 
-FROM prd_fold.facts.oe_detail 
+FROM prd_gold.facts.oe_detail 
 WHERE invoice_no = :invoice_no  -- ← Bill's method (returns 1 row)
 ```
 
@@ -107,27 +107,27 @@ After creating the table, run these queries to verify:
 
 ```sql
 -- Verify row count
-SELECT COUNT(*) as total_rows FROM prd_fold.facts.oe_detail;
+SELECT COUNT(*) as total_rows FROM prd_gold.facts.oe_detail;
 -- Expected: 20
 
 -- Show sample records
-SELECT * FROM prd_fold.facts.oe_detail LIMIT 5;
+SELECT * FROM prd_gold.facts.oe_detail LIMIT 5;
 
 -- Test the lookup (what the Domino agent will query)
 SELECT custno, custname, orderdate, shipdate 
-FROM prd_fold.facts.oe_detail 
+FROM prd_gold.facts.oe_detail 
 WHERE invoice_no = 'INV-2024-001';
 -- Expected: CUST001, Acme Corporation, 2024-01-05, 2024-01-10
 
 -- Test NULL handling (unshipped orders)
 SELECT invoice_no, custname, shipdate 
-FROM prd_fold.facts.oe_detail 
+FROM prd_gold.facts.oe_detail 
 WHERE shipdate IS NULL;
 -- Expected: 3 rows (INV-2024-004, INV-2024-009, INV-2024-020)
 
 -- Test comma in name (JSON parsing test)
 SELECT invoice_no, custname 
-FROM prd_fold.facts.oe_detail 
+FROM prd_gold.facts.oe_detail 
 WHERE custname LIKE '%,%';
 -- Expected: 3 rows with "Smith, Jones & Co."
 ```
@@ -138,7 +138,7 @@ WHERE custname LIKE '%,%';
 
 | Characteristic | Details |
 |---|---|
-| **Table Name** | `prd_fold.facts.oe_detail` |
+| **Table Name** | `prd_gold.facts.oe_detail` |
 | **Row Count** | 20 invoices |
 | **Columns** | 9 (4 core + 5 placeholders) |
 | **Date Range** | 2024-01-05 through 2024-06-25 |

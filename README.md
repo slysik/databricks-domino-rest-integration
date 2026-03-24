@@ -28,7 +28,7 @@ This integration allows HCL Domino forms to lookup order/invoice details from a 
 
 ### What You Get
 
-- ✅ **Databricks Table**: `prd_fold.facts.oe_detail` with 20 sample invoices
+- ✅ **Databricks Table**: `prd_gold.facts.oe_detail` with 20 sample invoices
 - ✅ **Domino Java Agent**: `OEDetailLookup` — secure REST API integration
 - ✅ **JavaScript Frontend**: jQuery-based Ajax form population
 - ✅ **Test Script**: Validate Databricks connectivity
@@ -82,7 +82,7 @@ This integration allows HCL Domino forms to lookup order/invoice details from a 
 │   Databricks REST API            │
 │                                  │
 │  SQL: SELECT custno, custname... │
-│  FROM prd_fold.facts.oe_detail   │
+│  FROM prd_gold.facts.oe_detail   │
 │  WHERE invoice_no = :invoice_no  │
 │                                  │
 │  Response: JSON with data_array  │
@@ -110,7 +110,7 @@ This integration allows HCL Domino forms to lookup order/invoice details from a 
 
 ### Databricks
 - ✅ Workspace with SQL warehouse (serverless or provisioned)
-- ✅ Catalog and schema created (`prd_fold.facts`)
+- ✅ Catalog and schema created (`prd_gold.facts`)
 - ✅ Personal Access Token (PAT) or OAuth token with SQL API permissions
 - ✅ Warehouse ID (visible in Workspace UI → SQL Warehouses)
 
@@ -137,7 +137,7 @@ Run the SQL to create the table and sample data:
 1. Open https://<workspace>.cloud.databricks.com/sql/editor
 2. Copy-paste contents of sql/create_oe_detail.sql
 3. Run all statements
-4. Verify: SELECT COUNT(*) FROM prd_fold.facts.oe_detail  → expect 20
+4. Verify: SELECT COUNT(*) FROM prd_gold.facts.oe_detail  → expect 20
 
 # Option B: Via CLI
 databricks sql -f sql/create_oe_detail.sql
@@ -145,7 +145,7 @@ databricks sql -f sql/create_oe_detail.sql
 
 **Verification Query:**
 ```sql
-SELECT * FROM prd_fold.facts.oe_detail ORDER BY invoice_no LIMIT 5;
+SELECT * FROM prd_gold.facts.oe_detail ORDER BY invoice_no LIMIT 5;
 ```
 
 Expected output: 5 invoices with custno, custname, orderdate, shipdate columns.
@@ -296,7 +296,7 @@ private static final int READ_TIMEOUT_MS = 35000;     // 35 seconds
 To modify the query executed, edit in `OEDetailLookup.java`:
 
 ```java
-String sqlStatement = "SELECT custno, custname, orderdate, shipdate FROM prd_fold.facts.oe_detail WHERE invoice_no = :invoice_no";
+String sqlStatement = "SELECT custno, custname, orderdate, shipdate FROM prd_gold.facts.oe_detail WHERE invoice_no = :invoice_no";
 ```
 
 ---
@@ -361,7 +361,7 @@ Content-Type: application/json
 
 {
   "warehouse_id": "4bbaafe9538467a0",
-  "statement": "SELECT custno, custname, orderdate, shipdate FROM prd_fold.facts.oe_detail WHERE invoice_no = :invoice_no",
+  "statement": "SELECT custno, custname, orderdate, shipdate FROM prd_gold.facts.oe_detail WHERE invoice_no = :invoice_no",
   "parameters": [
     {"name": "invoice_no", "value": "INV-2024-001", "type": "STRING"}
   ],
@@ -398,10 +398,10 @@ Edit `OEDetailLookup.java`:
 
 ```java
 // OLD:
-String sqlStatement = "SELECT custno, custname, orderdate, shipdate FROM prd_fold.facts.oe_detail WHERE invoice_no = :invoice_no";
+String sqlStatement = "SELECT custno, custname, orderdate, shipdate FROM prd_gold.facts.oe_detail WHERE invoice_no = :invoice_no";
 
 // NEW:
-String sqlStatement = "SELECT custno, custname, orderdate, shipdate, ponumber FROM prd_fold.facts.oe_detail WHERE invoice_no = :invoice_no";
+String sqlStatement = "SELECT custno, custname, orderdate, shipdate, ponumber FROM prd_gold.facts.oe_detail WHERE invoice_no = :invoice_no";
 ```
 
 #### Step 2: Update Response Format (Java Agent)
@@ -586,10 +586,10 @@ Field:
 **Solution:**
 1. Verify invoice exists:
    ```sql
-   SELECT * FROM prd_fold.facts.oe_detail WHERE invoice_no = 'INV-2024-001';
+   SELECT * FROM prd_gold.facts.oe_detail WHERE invoice_no = 'INV-2024-001';
    ```
 2. Check spelling and case (case-insensitive by default, but verify)
-3. Ensure correct table: `prd_fold.facts.oe_detail`
+3. Ensure correct table: `prd_gold.facts.oe_detail`
 
 #### Null values display as "null" string
 
@@ -662,11 +662,11 @@ Field:
 
 Current query:
 ```sql
-SELECT custno, custname, orderdate, shipdate FROM prd_fold.facts.oe_detail WHERE invoice_no = :invoice_no
+SELECT custno, custname, orderdate, shipdate FROM prd_gold.facts.oe_detail WHERE invoice_no = :invoice_no
 ```
 
 **For large tables (100K+ rows):**
-- Add index: `CREATE INDEX idx_invoice_no ON prd_fold.facts.oe_detail(invoice_no);`
+- Add index: `CREATE INDEX idx_invoice_no ON prd_gold.facts.oe_detail(invoice_no);`
 - Add partition: `PARTITION BY YEAR(orderdate)`
 
 ### Concurrent Usage

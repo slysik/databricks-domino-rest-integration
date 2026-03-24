@@ -119,7 +119,7 @@ public class OEDetailLookup extends AgentBase {
       }
 
       // ========== BUILD DATABRICKS SQL STATEMENT API REQUEST ==========
-      String sqlStatement = "SELECT custno, custname, orderdate, shipdate FROM prd_fold.facts.oe_detail WHERE invoice_no = :invoice_no";
+      String sqlStatement = "SELECT custno, custname, orderdate, shipdate FROM prd_gold.facts.oe_detail WHERE invoice_no = :invoice_no";
 
       String requestBody = buildJsonRequest(warehouseId, sqlStatement, invoiceNo);
 
