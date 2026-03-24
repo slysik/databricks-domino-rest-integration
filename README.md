@@ -1,847 +1,208 @@
 # Databricks-Domino REST Integration
 
-**Order Entry (OE) Detail Lookup from HCL Domino Forms via Databricks SQL API**
-
-A production-ready integration pattern for querying Databricks data from HCL Domino forms. This example implements invoice/order detail lookup, but the pattern generalizes to any Databricks table.
+**A simple, production-ready pattern for querying Databricks from HCL Domino forms**
 
 ---
 
-## 📋 Table of Contents
+## What This Does
 
-1. [Overview](#overview)
-2. [Architecture](#architecture)
-3. [Prerequisites](#prerequisites)
-4. [Installation](#installation)
-5. [Configuration](#configuration)
-6. [Usage](#usage)
-7. [API Reference](#api-reference)
-8. [Extending for New Fields](#extending-for-new-fields)
-9. [Troubleshooting](#troubleshooting)
-10. [Performance Considerations](#performance-considerations)
-11. [Security Best Practices](#security-best-practices)
-
----
-
-## Overview
-
-This integration allows HCL Domino forms to lookup order/invoice details from a Databricks table via REST API.
-
-### What You Get
-
-- ✅ **Domino Java Agent**: `OEDetailLookup` — secure Databricks REST API integration
-- ✅ **JavaScript Frontend**: jQuery-based Ajax form population
-- ✅ **Secure Configuration**: PAT stored in Domino environment document (never hardcoded)
-- ✅ **Test Script**: Validate Databricks connectivity (uses sample data for testing)
-- ✅ **Sample Data**: `prd_gold.facts.oe_detail` with 20 test invoices (for testing/validation only)
-
-**Note**: Bill will use his company's own Databricks table, not the sample data included here.
-
-### Use Cases
-
-- **Invoice Lookup**: Enter invoice number → auto-populate customer info, order/ship dates
-- **Order Status**: Track order details from Domino without leaving the form
-- **Customer Inquiry**: Quick reference for customer data during Domino form entry
-- **Integration Template**: Pattern extends to any Databricks table with 1-2 field changes
-
----
-
-## Architecture
-
-### Visual Architecture Diagram
-
-![Domino-Databricks Integration Architecture](./docs/diagrams/bill_domino_databricks_architecture.png)
-
-### Flow Description
-
-**3-Layer Architecture:**
-
-1. **Domino Form Layer** (Left)
-   - User enters invoice number
-   - Clicks "Lookup" button
-   - jQuery initiates Ajax POST
-
-2. **Java Agent Bridge** (Middle)
-   - `OEDetailLookup` reads POST body
-   - Parses invoice parameter
-   - Calls Databricks `/api/2.0/sql/statements` REST API
-   - Quote-aware JSON parsing
-   - Returns delimited result: `custno~*~custname~*~orderdate~*~shipdate`
-
-3. **Databricks Data Layer** (Right)
-   - Table: `prd_gold.facts.oe_detail`
-   - 20 sample invoices with South Carolina pun company names
-   - `invoice_no` is UNIQUE primary key
-   - One query → One row guaranteed
-
-**Complete Flow:**
 ```
-Invoice # (Domino) → Ajax POST → Java Agent → REST API → Databricks
-                                                              ↓
-Form Fields ← JavaScript Parse ← JSON Response ← SQL Result
+Your Domino Form
+   ↓ (invoice number)
+JavaScript Ajax POST
+   ↓
+Java Agent (OEDetailLookup)
+   ↓
+Databricks REST API (/api/2.0/sql/statements)
+   ↓
+SQL Query (parameterized, safe)
+   ↓
+JSON Response
+   ↓
+Java Agent parses & returns: custno~*~custname~*~orderdate~*~shipdate
+   ↓
+JavaScript splits on ~*~
+   ↓
+jQuery populates form fields
+```
+
+**Result**: User enters invoice number → Fields auto-populate in real-time
+
+---
+
+## Architecture Diagram
+
+![Architecture](./docs/diagrams/bill_domino_databricks_architecture.png)
+
+---
+
+## Your Quick Start (6 Steps)
+
+📖 **See [BILL_QUICK_START.md](./BILL_QUICK_START.md)** for your exact implementation steps.
+
+**Time**: ~30 minutes  
+**What you need**: Your Databricks host, PAT, warehouse ID  
+**No setup needed**: You use your company's own data table
+
+---
+
+## Adding More Fields (When You Get Table Access)
+
+When you get access to other tables and see what columns are available:
+
+📖 **See [EXTEND_WITH_MORE_FIELDS.md](./EXTEND_WITH_MORE_FIELDS.md)** for the simple 3-step pattern.
+
+**Example**: Add `ponumber`, `shipvia`, or any other fields to your form in minutes.
+
+---
+
+## Files in This Repo
+
+### Your Implementation Files
+```
+java/OEDetailLookup.java      ← Java agent (query logic)
+js/oe-lookup.js               ← JavaScript (form integration)
+```
+
+### For Testing (Optional)
+```
+sql/create_oe_detail.sql      ← Sample data (for testing only)
+test/test-api-call.sh         ← cURL test script
+tests/TestJsonParsing.java    ← Unit tests (validates parsing)
+```
+
+### Documentation
+```
+BILL_QUICK_START.md           ← START HERE (your 6 steps)
+EXTEND_WITH_MORE_FIELDS.md    ← How to add more columns
+PRODUCTION_NOTES.md           ← Deployment checklist
+ARCHITECTURE.md               ← Design decisions
+```
+
+---
+
+## How It Works (Your Pattern)
+
+### 1. Java Agent (Your Logic)
+```java
+// Receive invoice number via Ajax POST
+String invoiceNo = extractParameterValue(requestBody, "invoice");
+
+// Query Databricks REST API
+// (Your SQL adapts to your actual table)
+String sqlStatement = "SELECT custno, custname, orderdate, shipdate " +
+  "FROM prd_gold.facts.oe_detail WHERE invoice_no = :invoice_no";
+
+// Parse JSON response into variables
+String custno = values[0];
+String custname = values[1];
+// ... etc
+
+// Print delimited for JavaScript
+writer.println(custno + "~*~" + custname + "~*~" + orderdate + "~*~" + shipdate);
+```
+
+### 2. JavaScript (Your Form)
+```javascript
+// Receive response
+response = response.trim();
+
+// Split on your delimiter
+var parts = response.split("~*~");
+
+// Extract variables (Bill's pattern)
+var custNo = parts[0];
+var custName = parts[1];
+var orderDate = parts[2];
+var shipDate = parts[3];
+
+// Populate form (jQuery)
+$("#CustomerNo").val(custNo);
+$("#CustomerName").val(custName);
+$("#OrderDate").val(orderDate);
+$("#ShipDate").val(shipDate);
 ```
 
 ---
 
 ## Prerequisites
 
-### Databricks
-- ✅ Workspace with SQL warehouse (serverless or provisioned)
-- ✅ Catalog and schema created (`prd_gold.facts`)
-- ✅ Personal Access Token (PAT) or OAuth token with SQL API permissions
-- ✅ Warehouse ID (visible in Workspace UI → SQL Warehouses)
-
-### HCL Domino
-- ✅ Domino Designer 12.0.2 or later
-- ✅ Database with form and Java agent support
-- ✅ Admin access to configure environment document
-- ✅ JVM with modern TLS certificates (may need truststore import)
-
-### Network
-- ✅ Outbound HTTPS (443) access from Domino to Databricks workspace
-- ✅ No firewall blocking to `*.cloud.databricks.com`
+✅ Databricks workspace with SQL warehouse  
+✅ Your company's delta table (or similar)  
+✅ Databricks PAT token  
+✅ Domino Designer (for deployment)  
 
 ---
 
-## Installation
+## Key Features
 
-### Prerequisites: Your Databricks Delta Table
+✅ **Parameterized SQL** — Safe from injection  
+✅ **Secure credentials** — Stored in Domino environment document  
+✅ **Production timeouts** — Works with cold warehouses (30s+)  
+✅ **Error handling** — Clear messages for debugging  
+✅ **Extensible pattern** — Add fields easily as you discover tables  
 
-**Bill**: This integration assumes you already have:
-- ✅ A Databricks workspace with an existing delta table
-- ✅ Table with columns: `invoice_no` (primary key), `custno`, `custname`, `orderdate`, `shipdate`
-- ✅ SQL warehouse with SELECT permissions on the table
+---
 
-**Sample schema** (adapt to your actual table):
-```sql
--- Your table might be different — adjust the query in step 3 below
-SELECT invoice_no, custno, custname, orderdate, shipdate 
-FROM your_catalog.your_schema.your_table 
-WHERE invoice_no = :invoice_no
-```
+## Next Steps
 
-**Note**: The `sql/create_oe_detail.sql` file in this repo is for testing only. You'll use your company's actual delta table.
+### 👉 **Step 1**: Read [BILL_QUICK_START.md](./BILL_QUICK_START.md)
+Your 6-step implementation guide. Follow exactly.
 
-### Step 1: Gather Your Databricks Configuration
+### 👉 **Step 2**: Set Up
+1. Gather Databricks info (host, PAT, warehouse ID)
+2. Configure Domino environment document
+3. Import Java agent
+4. Add JavaScript to form
+5. Add form fields
+6. Test with your invoice numbers
 
-From your company's Databricks workspace, collect these 3 values:
+### 👉 **Step 3**: When You Get Table Access
+1. See what columns are available in other tables
+2. Follow [EXTEND_WITH_MORE_FIELDS.md](./EXTEND_WITH_MORE_FIELDS.md)
+3. Add fields in 3 simple steps
 
-1. **DATABRICKS_HOST**: Workspace hostname
-   - Example: `dbc-a1b2c3d4.cloud.databricks.com`
-   - Find in browser URL or Settings → Account
+---
 
-2. **DATABRICKS_TOKEN**: Personal Access Token
-   - Generate in Settings → Developer → Access tokens → Generate new token
-   - **Keep this secret** — use Domino environment document, never commit to repo
+## Important: DatabasePath Hidden Field
 
-3. **WAREHOUSE_ID**: SQL warehouse identifier
-   - Find in Databricks UI → SQL Warehouses → click warehouse → copy ID from URL
-   - Example: `4bbaafe9538467a0`
+**You MUST add this to your Domino form** (non-negotiable):
 
-### Step 2: Update the SQL Query (Optional)
-
-If your table has a different name or schema, update the SQL query in `java/OEDetailLookup.java`:
-
-**Current**:
-```java
-String sqlStatement = "SELECT custno, custname, orderdate, shipdate FROM prd_gold.facts.oe_detail WHERE invoice_no = :invoice_no";
-```
-
-**Update to your table**:
-```java
-String sqlStatement = "SELECT custno, custname, orderdate, shipdate FROM your_catalog.your_schema.your_table WHERE invoice_no = :invoice_no";
-```
-
-### Step 3: Configure Domino Environment Document
-
-The Java agent reads Databricks credentials from a **Domino environment document** — never hardcoded in source.
-
-1. **In Domino Designer**, open your database
-2. **Create a new design element**: Design → Other → Environment Document
-3. **Name it** (optional, e.g., "DatabricksConfig")
-4. **Add three fields** (append field to form):
-
-   | Field Name | Type | Value |
-   |------------|------|-------|
-   | `DATABRICKS_HOST` | Text | `dbc-a1b2c3d4.cloud.databricks.com` |
-   | `DATABRICKS_TOKEN` | Text (or Password) | `dapi...` (your PAT) |
-   | `WAREHOUSE_ID` | Text | `4bbaafe9538467a0` |
-
-5. **Save the environment document**
-
-**Why environment document?**
-- Credentials are never hardcoded in source → safe to commit/share code
-- Easy to update without recompiling Java agent
-- Domino encrypts field values (especially Password type fields)
-- Different environment documents for dev/test/prod
-
-### Step 4: Import Java Agent into Domino
-
-1. **In Domino Designer**, open your database
-2. **Design → Agents**
-3. **Right-click → Import**
-4. **Select `java/OEDetailLookup.java`**
-5. **Confirm import** — Designer auto-compiles with Domino JVM
-
-**Verify import:**
-- Agent should appear in design list: `OEDetailLookup`
-- Right-click → Properties → Agent tab → Interpreter should be "Java"
-
-### Step 5: Add JavaScript to Domino Form
-
-1. **In Designer**, open your form (or create new)
-2. **Click form → Edit form in Designer** (if not already open)
-3. **Navigate to**: Design → Code → Client Library
-4. **Paste contents of `js/oe-lookup.js`** at the bottom
-5. **Or link the JS** via external reference if your form supports it
-
-**Alternative: Inline in form HTML**
 ```html
-<script src="/path/to/oe-lookup.js"></script>
+<input id="DatabasePath" type="hidden" value="your-database.nsf" />
 ```
 
-### Step 6: Add Fields to Your Form (Or Create New)
+Replace `your-database.nsf` with your actual database filename.
 
-Add these fields to your Domino form (or create a new one). Bill can add these to an existing order entry form:
-
-**Required HTML field IDs** (add to your form):
-
-| Field Purpose | HTML Element | Notes |
-|---------------|--------------|-------|
-| Invoice Input | `<input id="InvoiceNo" type="text" />` | User enters invoice number here |
-| Customer Number | `<input id="CustomerNo" type="text" disabled />` | Auto-populated by lookup |
-| Customer Name | `<input id="CustomerName" type="text" disabled />` | Auto-populated by lookup |
-| Order Date | `<input id="OrderDate" type="text" disabled />` | Auto-populated by lookup (formatted MM/DD/YYYY) |
-| Ship Date | `<input id="ShipDate" type="text" disabled />` | Auto-populated by lookup (formatted MM/DD/YYYY, nullable) |
-| Lookup Button | `<button id="LookupBtn">Lookup</button>` | Triggers the lookup |
-| **Database Path** ⚠️ | `<input id="DatabasePath" type="hidden" value="[your-database.nsf]" />` | **REQUIRED** — must match your Domino database filename |
-
-**Example HTML snippet** (Bill can adapt to his form):
-```html
-<form>
-  <label>Invoice #:</label>
-  <input id="InvoiceNo" type="text" />
-  <button id="LookupBtn" type="button">Lookup</button>
-
-  <label>Customer #:</label>
-  <input id="CustomerNo" type="text" disabled />
-
-  <label>Customer Name:</label>
-  <input id="CustomerName" type="text" disabled />
-
-  <label>Order Date:</label>
-  <input id="OrderDate" type="text" disabled />
-
-  <label>Ship Date:</label>
-  <input id="ShipDate" type="text" disabled />
-
-  <!-- CRITICAL: Must match your database filename -->
-  <input id="DatabasePath" type="hidden" value="orders.nsf" />
-</form>
-```
-
-### Step 7: Set Database ACL
-
-The Java agent and form must have proper permissions:
-
-1. **In Designer**, open database → File → Database Access Control
-2. **User/Group**: Add yourself (and users who'll use the form)
-3. **Access level**: **Editor** or **Manager** (agents need this)
-4. **Roles**: Check `[AgentExecutor]` if using role-based execution
-5. **Save and close**
+**Without this**: Form will show error on Lookup click.
 
 ---
 
-## Configuration
+## Testing (Optional)
 
-### Environment Document Fields
-
-| Field | Type | Example | Notes |
-|-------|------|---------|-------|
-| `DATABRICKS_HOST` | Text | `dbc-a1b2c3d4.cloud.databricks.com` | Workspace hostname (no https://) |
-| `DATABRICKS_TOKEN` | Text/Password | `dapi123...` | PAT with SQL API permissions |
-| `WAREHOUSE_ID` | Text | `4bbaafe9538467a0` | SQL warehouse ID (not name) |
-
-### Connection Timeouts
-
-**Important**: Timeouts are configured to work together as an end-to-end budget:
-
-```
-Browser AJAX timeout:        100 seconds
-Backend read timeout:         35 seconds
-Backend polling timeout:      60 seconds (PENDING/RUNNING states)
-Total backend budget:         95 seconds (35s + 60s)
-```
-
-**Why 100 seconds in browser?**
-- Gives backend maximum time to complete (35s read + 60s polling)
-- Plus 5 second buffer for network latency
-- If query takes > 95s, user will see timeout (as expected for very slow queries)
-
-**Adjusting timeouts** in `OEDetailLookup.java`:
-
-```java
-private static final int CONNECT_TIMEOUT_MS = 10000;  // 10 seconds
-private static final int READ_TIMEOUT_MS = 35000;     // 35 seconds (initial statement execution)
-// Plus up to 60 seconds of polling in pollStatementStatus()
-```
-
-And in `js/oe-lookup.js`:
-
-```javascript
-timeout: 100000,  // 100 seconds — must be >= backend timeout
-```
-
-**Rules**:
-- Browser timeout must be ≥ backend max time (read + polling)
-- If cold warehouse is slow, increase backend timeouts
-- If increasing backend timeouts, also increase browser timeout
-
-### SQL Query
-
-To modify the query executed, edit in `OEDetailLookup.java`:
-
-```java
-String sqlStatement = "SELECT custno, custname, orderdate, shipdate FROM prd_gold.facts.oe_detail WHERE invoice_no = :invoice_no";
-```
-
----
-
-## Usage
-
-### User Experience
-
-1. Open Domino form
-2. Enter invoice number (e.g., `INV-2024-001`)
-3. Click **Lookup** button (or trigger on field change)
-4. Wait 2-3 seconds → fields auto-populate:
-   - Customer #: `CUST001`
-   - Customer Name: `Acme Corporation`
-   - Order Date: `01/05/2024`
-   - Ship Date: `01/10/2024`
-
-### Error Handling
-
-If lookup fails:
-- **"Invalid or missing invoice number"** → Check invoice field is not empty
-- **"Databricks configuration missing"** → Verify environment document has all 3 fields
-- **"Databricks API error: 401"** → PAT expired or invalid; regenerate in Databricks
-- **"Databricks API error: 403"** → Token lacks SQL API permissions; check Databricks admin permissions
-- **"Connection to Databricks timed out"** → Warehouse is cold; wait or increase timeout
-- **"No invoice found for INV-123"** → Invoice doesn't exist in table; verify invoice number
-
----
-
-## API Reference
-
-### Java Agent: `OEDetailLookup`
-
-**HTTP Endpoint:**
-```
-POST /<database>.nsf/OEDetailLookup?OpenAgent
-Content-Type: application/x-www-form-urlencoded
-
-Body:
-invoice=INV-2024-001
-```
-
-**Success Response:**
-```
-Content-Type: text/plain
-
-CUST001~*~Acme Corporation~*~2024-01-05~*~2024-01-10
-```
-
-**Error Response:**
-```
-ERROR~*~Databricks API error: 401 - Unauthorized
-```
-
-### Databricks SQL Statement API
-
-The Java agent calls this endpoint:
-```
-POST https://<workspace>/api/2.0/sql/statements
-Authorization: Bearer <PAT>
-Content-Type: application/json
-
-{
-  "warehouse_id": "4bbaafe9538467a0",
-  "statement": "SELECT custno, custname, orderdate, shipdate FROM prd_gold.facts.oe_detail WHERE invoice_no = :invoice_no",
-  "parameters": [
-    {"name": "invoice_no", "value": "INV-2024-001", "type": "STRING"}
-  ],
-  "wait_timeout": "30s"
-}
-```
-
-**Response (success):**
-```json
-{
-  "statement_id": "...",
-  "status": {
-    "state": "SUCCEEDED",
-    "result": {
-      "data_array": [
-        ["CUST001", "Acme Corporation", "2024-01-05", "2024-01-10"]
-      ]
-    }
-  }
-}
-```
-
----
-
-## Extending for New Fields
-
-### Scenario: Add a PO Number field
-
-You want to display the `ponumber` field from the database.
-
-#### Step 1: Update SQL Query (Java Agent)
-
-Edit `OEDetailLookup.java`:
-
-```java
-// OLD:
-String sqlStatement = "SELECT custno, custname, orderdate, shipdate FROM prd_gold.facts.oe_detail WHERE invoice_no = :invoice_no";
-
-// NEW:
-String sqlStatement = "SELECT custno, custname, orderdate, shipdate, ponumber FROM prd_gold.facts.oe_detail WHERE invoice_no = :invoice_no";
-```
-
-#### Step 2: Update Response Format (Java Agent)
-
-In `NotesMain()` method, find this line:
-
-```java
-// OLD:
-String result = values[0] + DELIMITER + values[1] + DELIMITER + values[2] + DELIMITER + values[3];
-
-// NEW:
-String result = values[0] + DELIMITER + values[1] + DELIMITER + values[2] + DELIMITER + values[3] + DELIMITER + values[4];
-```
-
-Also update the comment in `parseDataArrayValues()`:
-
-```java
-// OLD:
-if (values == null || values.length < 4) {
-
-// NEW:
-if (values == null || values.length < 5) {
-```
-
-#### Step 3: Update JavaScript (Form)
-
-Edit `js/oe-lookup.js`:
-
-```javascript
-// OLD:
-if (parts.length < 4) {
-  showError("Unexpected response format from server.");
-  return;
-}
-...
-var custNo = getValue(parts[0]);
-var custName = getValue(parts[1]);
-var orderDate = formatDate(getValue(parts[2]));
-var shipDate = formatDate(getValue(parts[3]));
-
-$("#CustomerNo").val(custNo);
-$("#CustomerName").val(custName);
-$("#OrderDate").val(orderDate);
-$("#ShipDate").val(shipDate);
-
-// NEW:
-if (parts.length < 5) {
-  showError("Unexpected response format from server.");
-  return;
-}
-...
-var custNo = getValue(parts[0]);
-var custName = getValue(parts[1]);
-var orderDate = formatDate(getValue(parts[2]));
-var shipDate = formatDate(getValue(parts[3]));
-var poNumber = getValue(parts[4]);
-
-$("#CustomerNo").val(custNo);
-$("#CustomerName").val(custName);
-$("#OrderDate").val(orderDate);
-$("#ShipDate").val(shipDate);
-$("#PONumber").val(poNumber);
-```
-
-Also update the field mapping comment:
-
-```javascript
-// OLD:
-// Current field mapping (4 fields):
-//   0 = custno (Customer Number)
-//   1 = custname (Customer Name)
-//   2 = orderdate (Order Date) [formatted MM/DD/YYYY]
-//   3 = shipdate (Ship Date) [formatted MM/DD/YYYY, nullable]
-
-// NEW:
-// Current field mapping (5 fields):
-//   0 = custno (Customer Number)
-//   1 = custname (Customer Name)
-//   2 = orderdate (Order Date) [formatted MM/DD/YYYY]
-//   3 = shipdate (Ship Date) [formatted MM/DD/YYYY, nullable]
-//   4 = ponumber (PO Number)
-```
-
-#### Step 4: Update Domino Form
-
-Add a new field to your form:
-
-```
-Field:
-  Name:        PONumber
-  Type:        Text
-  Label:       PO #
-  HTML:        <input id="PONumber" name="PONumber" type="text" disabled />
-```
-
-#### Step 5: Test
-
-1. Re-import `OEDetailLookup.java` into Domino (Designer will auto-compile)
-2. Reload the form
-3. Look up an invoice
-4. Verify PO number field populates: `PO-2024-001`
-
----
-
-## Troubleshooting
-
-### Connection Issues
-
-#### `SSLHandshakeException` or certificate validation error
-
-**Problem:** Domino JVM doesn't trust Databricks certificate
-
-**Solution:**
-1. Export Databricks certificate:
-   ```bash
-   # Get the cert from Databricks workspace (replace with your host)
-   openssl s_client -connect dbc-a1b2c3d4.cloud.databricks.com:443 -showcerts < /dev/null | \
-     grep -A 50 "BEGIN CERTIFICATE" > databricks.cer
-   ```
-
-2. Import into Domino JVM truststore:
-   ```bash
-   # Find Domino JVM path (macOS example; adjust for your OS)
-   DOMINO_JVM="/Applications/HCL Domino.app/Contents/Frameworks/jvm/Contents/Home"
-   
-   # Import certificate
-   "$DOMINO_JVM/bin/keytool" -import -alias databricks \
-     -file databricks.cer \
-     -keystore "$DOMINO_JVM/lib/security/cacerts" \
-     -storepass changeit -noprompt
-   ```
-
-3. Restart Domino server
-
-#### `401 Unauthorized`
-
-**Problem:** Invalid or expired PAT
-
-**Solution:**
-1. In Databricks UI → Settings → Developer → Access tokens
-2. Check token expiration date
-3. Generate new token if expired
-4. Update DATABRICKS_TOKEN in environment document
-5. Verify token has SQL API permissions
-
-#### `403 Forbidden`
-
-**Problem:** Token lacks SQL API permissions
-
-**Solution:**
-1. In Databricks UI → Admin console → Users
-2. Find your user
-3. Check SQL API workspace permission is enabled
-4. If not, add the permission
-
-#### `404 Not Found`
-
-**Problem:** Invalid warehouse ID or endpoint
-
-**Solution:**
-1. Verify WAREHOUSE_ID in environment document
-2. In Databricks UI → SQL Warehouses → copy ID from URL bar
-3. Check warehouse is created and in Running state
-4. Try starting warehouse if stopped
-
-#### `Connection timeout`
-
-**Problem:** Warehouse is cold-starting or query is slow
-
-**Solution:**
-1. Increase READ_TIMEOUT_MS in Java agent to 60000 (60 seconds)
-2. Use serverless warehouse (starts faster)
-3. Check warehouse auto-resume is enabled in Databricks settings
-4. Wait for warehouse to warm up and retry
-
-### Data Issues
-
-#### No results returned ("No invoice found...")
-
-**Problem:** Invoice number doesn't exist in table
-
-**Solution:**
-1. Verify invoice exists:
-   ```sql
-   SELECT * FROM prd_gold.facts.oe_detail WHERE invoice_no = 'INV-2024-001';
-   ```
-2. Check spelling and case (case-insensitive by default, but verify)
-3. Ensure correct table: `prd_gold.facts.oe_detail`
-
-#### Null values display as "null" string
-
-**Problem:** JavaScript is not handling null correctly
-
-**Solution:**
-1. Check `sanitizeValue()` in Java agent returns empty string for null literal
-2. Check `getValue()` in JavaScript handles "null" string:
-   ```javascript
-   if (!value || value === "null" || value.trim() === "") {
-     return "";
-   }
-   ```
-
-#### Dates not formatting correctly
-
-**Problem:** JavaScript formatDate() receives unexpected format
-
-**Solution:**
-1. Verify Databricks returns DATE as `YYYY-MM-DD` string
-2. Check SQL query: `SELECT orderdate::string ...` if using DATE type
-3. Test with curl script: `./test/test-api-call.sh INV-2024-001`
-
-### Domino-Specific Issues
-
-#### Agent doesn't compile
-
-**Problem:** Syntax error or missing Domino JARs
-
-**Solution:**
-1. In Designer, double-click agent → Edit
-2. Check Agent → Java Compiler output for errors
-3. Verify imports are correct: `lotus.domino.*`, `java.net.*`
-4. Common issue: Wrong exception class — use `java.net.SocketTimeoutException`
-
-#### Agent runs but returns no output
-
-**Problem:** Content-Type header not written, or exception silently failing
-
-**Solution:**
-1. Check agent execution result in Domino logs
-2. Verify this line executes: `writer.println("Content-Type: text/plain");`
-3. Add debug logging by modifying agent output:
-   ```java
-   writer.println("DEBUG: reached checkpoint 1");
-   ```
-
-#### Form field IDs don't match
-
-**Problem:** JavaScript uses `$("#InvoiceNo")` but form field is named differently
-
-**Solution:**
-1. In Designer, right-click form field → Properties
-2. Check "HTML Attributes" → verify `id="InvoiceNo"`
-3. Ensure all 5 fields have matching IDs:
-   - `InvoiceNo`, `CustomerNo`, `CustomerName`, `OrderDate`, `ShipDate`, `LookupBtn`
-
----
-
-## Performance Considerations
-
-### SQL Warehouse Settings
-
-- **Serverless warehouse** (recommended): Starts in ~10s, scales automatically
-- **Provisioned warehouse**: Faster once started, but requires manual scaling
-- **Auto-resume**: Enable in warehouse settings to avoid cold starts
-- **Auto-suspend**: Set to 5-10 minutes to save costs
-
-### Query Optimization
-
-Current query:
-```sql
-SELECT custno, custname, orderdate, shipdate FROM prd_gold.facts.oe_detail WHERE invoice_no = :invoice_no
-```
-
-**For large tables (100K+ rows):**
-- Add index: `CREATE INDEX idx_invoice_no ON prd_gold.facts.oe_detail(invoice_no);`
-- Add partition: `PARTITION BY YEAR(orderdate)`
-
-### Concurrent Usage
-
-- Databricks SQL Warehouse auto-scales to support concurrent queries
-- Domino connection pooling: Adjust `lotus.properties` if high concurrency
-- Test with load tool to verify warehouse capacity
-
----
-
-## Security Best Practices
-
-### PAT Management
-
-- ✅ Store in Domino environment document (encrypted)
-- ✅ Use minimal-scope token (SQL API only, not admin)
-- ✅ Rotate annually or when employees leave
-- ❌ Never commit PAT to Git
-- ❌ Never log PAT to console
-- ❌ Never hardcode in Java source
-
-### Network Security
-
-- ✅ Use HTTPS only (enforced by agent)
-- ✅ Verify TLS certificates (keytool import for custom CA)
-- ✅ Firewall database ACL to authorized users
-- ✅ Consider IP allowlisting in Databricks workspace
-
-### Data Security
-
-- ✅ Query returns only necessary columns
-- ✅ Use parameterized queries (prevents SQL injection)
-- ✅ Audit Databricks access via system tables (system.access.audit)
-- ✅ Enable Databricks password policy
-
-### Code Security
-
-- ✅ Code review before deploying agent
-- ✅ Log all API calls to Domino console (for debugging)
-- ✅ Monitor Databricks audit logs for unusual activity
-- ✅ Test error handling to avoid info leaks
-
----
-
-## Production Deployment Checklist
-
-Before deploying to production, verify all items below:
-
-### Databricks Setup
-- [ ] Table created: `SELECT COUNT(*) FROM prd_gold.facts.oe_detail;` → expect 20
-- [ ] SQL warehouse started and running
-- [ ] Warehouse auto-resume enabled in settings
-- [ ] PAT generated with SQL API permissions
-- [ ] Test query works: `SELECT * FROM prd_gold.facts.oe_detail WHERE invoice_no = 'INV-2024-001';`
-- [ ] Databricks audit logging enabled (optional but recommended)
-
-### Domino Configuration
-- [ ] Environment document created with 3 fields:
-  - `DATABRICKS_HOST`: Workspace hostname
-  - `DATABRICKS_TOKEN`: PAT (Password type field recommended)
-  - `WAREHOUSE_ID`: SQL warehouse ID
-- [ ] Java agent `OEDetailLookup` imported and compiled
-- [ ] JavaScript `oe-lookup.js` added to form
-- [ ] Form fields created: `InvoiceNo`, `CustomerNo`, `CustomerName`, `OrderDate`, `ShipDate`, `LookupBtn`
-- [ ] Database ACL configured (allow Editor or Manager access)
-- [ ] Agent execution rights tested (call from form successfully)
-
-### Testing Before Go-Live
-- [ ] Test with `INV-2024-001` → should return "Chew-leston Charms Trading Co"
-- [ ] Test with `INV-2024-004` → should show NULL shipdate (unshipped order)
-- [ ] Test error case: invalid invoice → should show "No invoice found" message
-- [ ] Test timeout handling: disable warehouse, verify timeout error displayed
-- [ ] Test with multiple concurrent users (if high volume expected)
-
-### Post-Deployment
-- [ ] Monitor Domino console for errors in first week
-- [ ] Check Databricks audit logs for unexpected queries
-- [ ] Document any customizations made to the form
-- [ ] Create backup of environment document configuration
-- [ ] Set PAT rotation reminder (annually)
-- [ ] Document support process for users (who to contact if lookup fails)
-
-### Performance Tuning (Optional)
-- [ ] If warehouse cold-starts are slow, increase `READ_TIMEOUT_MS` to 60000
-- [ ] If high concurrency (100+ concurrent users), verify warehouse size
-- [ ] Monitor query execution time in Databricks SQL editor
-
-### Monitoring & Alerts (Recommended)
-- [ ] Set up Domino agent error logging to syslog/monitoring tool
-- [ ] Create Databricks alert if `prd_gold.facts.oe_detail` row count changes unexpectedly
-- [ ] Monitor Databricks SQL warehouse costs in workspace settings
-- [ ] Set PAT expiration reminder in calendar
-
----
-
-## Testing
-
-### Test 1: Databricks Connectivity
+To test Databricks connectivity before deployment:
 
 ```bash
-export DATABRICKS_HOST=dbc-a1b2c3d4.cloud.databricks.com
-export DATABRICKS_TOKEN=dapi...
-export WAREHOUSE_ID=4bbaafe9538467a0
-
 ./test/test-api-call.sh "INV-2024-001"
-
-# Expected output:
-# ✓ Query succeeded
-# Status: SUCCESS
 ```
 
-### Test 2: Domino Agent
-
-1. In Designer, open agent `OEDetailLookup`
-2. Click **Run** button
-3. Check Java console output for errors
-
-### Test 3: Form Integration
-
-1. Open form in Notes client
-2. Enter invoice number: `INV-2024-001`
-3. Click **Lookup**
-4. Verify fields populate within 5 seconds
-5. Try invalid invoice: verify error message appears
-
-### Test 4: Error Scenarios
-
-| Scenario | Expected | How to Test |
-|----------|----------|------------|
-| Invalid invoice | "No invoice found for ABC" | Enter `ABC` in invoice field |
-| Missing invoice | Alert on form | Leave invoice blank, click Lookup |
-| Bad token | "API error: 401 Unauthorized" | Set bad DATABRICKS_TOKEN, lookup |
-| Bad warehouse | "API error: 404 Not Found" | Set bad WAREHOUSE_ID, lookup |
+(Replace with your actual invoice number from your table)
 
 ---
 
-## Support & Contribution
+## Questions?
 
-### Issues
-
-1. Check **Troubleshooting** section above
-2. Run test script: `./test/test-api-call.sh`
-3. Check Domino agent logs
-4. Check Databricks SQL warehouse query history
-
-### Contributing
-
-1. Fork the repo
-2. Create feature branch: `git checkout -b feature/new-fields`
-3. Commit changes: `git commit -am 'Add ponumber field'`
-4. Push and open PR
+- **How do I add more fields?** → See [EXTEND_WITH_MORE_FIELDS.md](./EXTEND_WITH_MORE_FIELDS.md)
+- **How do I deploy?** → See [BILL_QUICK_START.md](./BILL_QUICK_START.md) Step 6
+- **Design details?** → See [ARCHITECTURE.md](./ARCHITECTURE.md)
+- **Before going live?** → See [PRODUCTION_NOTES.md](./PRODUCTION_NOTES.md)
 
 ---
 
-## License
+## GitHub Repository
 
-Apache License 2.0 — See LICENSE file for details
-
----
-
-## Reference Material
-
-- [Databricks SQL Statement API](https://docs.databricks.com/api/workspace/statementexecution)
-- [HCL Domino REST API](https://opensource.hcltechsw.com/Domino-rest-api/)
-- [Domino Java Agent Development](https://www.ibm.com/support/knowledgecenter/SSVRGU_9.0.0/admin/cag_jsagent.html)
-- [Java HttpURLConnection](https://docs.oracle.com/javase/tutorial/networking/urls/readingURL.html)
-- [Parameterized Queries in SQL](https://owasp.org/www-community/attacks/SQL_Injection)
+https://github.com/slysik/databricks-domino-rest-integration
 
 ---
 
-**Last Updated**: 2026-03-24  
-**Version**: 1.0  
-**Tested With**: HCL Domino 12.0.2+, Databricks SQL API v2.0
+**Ready to implement?** → [BILL_QUICK_START.md](./BILL_QUICK_START.md) ✅
