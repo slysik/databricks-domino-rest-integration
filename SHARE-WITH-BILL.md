@@ -1,6 +1,8 @@
-# How to Share Sample Data with Bill
+# Test Data Setup (For Development/Testing Only)
 
-**Bill** — This guide shows you how to load the 20 sample invoices into your Databricks workspace (takes 2 minutes).
+**Note**: This guide is for setting up test sample data in your own Databricks workspace for development and testing. 
+
+**Bill** (for production): You will use your company's own Databricks delta table instead. Follow the main README.md for integration steps.
 
 ---
 

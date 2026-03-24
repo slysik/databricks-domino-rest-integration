@@ -28,11 +28,13 @@ This integration allows HCL Domino forms to lookup order/invoice details from a 
 
 ### What You Get
 
-- ✅ **Databricks Table**: `prd_gold.facts.oe_detail` with 20 sample invoices
-- ✅ **Domino Java Agent**: `OEDetailLookup` — secure REST API integration
+- ✅ **Domino Java Agent**: `OEDetailLookup` — secure Databricks REST API integration
 - ✅ **JavaScript Frontend**: jQuery-based Ajax form population
-- ✅ **Test Script**: Validate Databricks connectivity
 - ✅ **Secure Configuration**: PAT stored in Domino environment document (never hardcoded)
+- ✅ **Test Script**: Validate Databricks connectivity (uses sample data for testing)
+- ✅ **Sample Data**: `prd_gold.facts.oe_detail` with 20 test invoices (for testing/validation only)
+
+**Note**: Bill will use his company's own Databricks table, not the sample data included here.
 
 ### Use Cases
 
@@ -102,33 +104,29 @@ Form Fields ← JavaScript Parse ← JSON Response ← SQL Result
 
 ## Installation
 
-### Step 1: Create Databricks Table
+### Prerequisites: Your Databricks Delta Table
 
-Run the SQL to create the table and sample data:
+**Bill**: This integration assumes you already have:
+- ✅ A Databricks workspace with an existing delta table
+- ✅ Table with columns: `invoice_no` (primary key), `custno`, `custname`, `orderdate`, `shipdate`
+- ✅ SQL warehouse with SELECT permissions on the table
 
-```bash
-# Option A: Via Databricks SQL editor (web UI)
-1. Open https://<workspace>.cloud.databricks.com/sql/editor
-2. Copy-paste contents of sql/create_oe_detail.sql
-3. Run all statements
-4. Verify: SELECT COUNT(*) FROM prd_gold.facts.oe_detail  → expect 20
-
-# Option B: Via CLI
-databricks sql -f sql/create_oe_detail.sql
-```
-
-**Verification Query:**
+**Sample schema** (adapt to your actual table):
 ```sql
-SELECT * FROM prd_gold.facts.oe_detail ORDER BY invoice_no LIMIT 5;
+-- Your table might be different — adjust the query in step 3 below
+SELECT invoice_no, custno, custname, orderdate, shipdate 
+FROM your_catalog.your_schema.your_table 
+WHERE invoice_no = :invoice_no
 ```
 
-Expected output: 5 invoices with custno, custname, orderdate, shipdate columns.
+**Note**: The `sql/create_oe_detail.sql` file in this repo is for testing only. You'll use your company's actual delta table.
 
-### Step 2: Gather Databricks Configuration
+### Step 1: Gather Your Databricks Configuration
 
-From your Databricks workspace, collect:
+From your company's Databricks workspace, collect these 3 values:
 
-1. **DATABRICKS_HOST**: Workspace hostname (e.g., `dbc-a1b2c3d4.cloud.databricks.com`)
+1. **DATABRICKS_HOST**: Workspace hostname
+   - Example: `dbc-a1b2c3d4.cloud.databricks.com`
    - Find in browser URL or Settings → Account
 
 2. **DATABRICKS_TOKEN**: Personal Access Token
@@ -138,6 +136,20 @@ From your Databricks workspace, collect:
 3. **WAREHOUSE_ID**: SQL warehouse identifier
    - Find in Databricks UI → SQL Warehouses → click warehouse → copy ID from URL
    - Example: `4bbaafe9538467a0`
+
+### Step 2: Update the SQL Query (Optional)
+
+If your table has a different name or schema, update the SQL query in `java/OEDetailLookup.java`:
+
+**Current**:
+```java
+String sqlStatement = "SELECT custno, custname, orderdate, shipdate FROM prd_gold.facts.oe_detail WHERE invoice_no = :invoice_no";
+```
+
+**Update to your table**:
+```java
+String sqlStatement = "SELECT custno, custname, orderdate, shipdate FROM your_catalog.your_schema.your_table WHERE invoice_no = :invoice_no";
+```
 
 ### Step 3: Configure Domino Environment Document
 
@@ -187,59 +199,44 @@ The Java agent reads Databricks credentials from a **Domino environment document
 <script src="/path/to/oe-lookup.js"></script>
 ```
 
-### Step 6: Create Invoice Lookup Form
+### Step 6: Add Fields to Your Form (Or Create New)
 
-Create a Domino form with these fields:
+Add these fields to your Domino form (or create a new one). Bill can add these to an existing order entry form:
 
-```
-Form Name: OrderEntry  (or similar)
+**Required HTML field IDs** (add to your form):
 
-Field 1:
-  Name:        InvoiceNo
-  Type:        Text
-  Label:       Invoice #
-  HTML:        <input id="InvoiceNo" name="InvoiceNo" type="text" />
+| Field Purpose | HTML Element | Notes |
+|---------------|--------------|-------|
+| Invoice Input | `<input id="InvoiceNo" type="text" />` | User enters invoice number here |
+| Customer Number | `<input id="CustomerNo" type="text" disabled />` | Auto-populated by lookup |
+| Customer Name | `<input id="CustomerName" type="text" disabled />` | Auto-populated by lookup |
+| Order Date | `<input id="OrderDate" type="text" disabled />` | Auto-populated by lookup (formatted MM/DD/YYYY) |
+| Ship Date | `<input id="ShipDate" type="text" disabled />` | Auto-populated by lookup (formatted MM/DD/YYYY, nullable) |
+| Lookup Button | `<button id="LookupBtn">Lookup</button>` | Triggers the lookup |
+| **Database Path** ⚠️ | `<input id="DatabasePath" type="hidden" value="[your-database.nsf]" />` | **REQUIRED** — must match your Domino database filename |
 
-Field 2:
-  Name:        CustomerNo
-  Type:        Text
-  Label:       Customer #
-  HTML:        <input id="CustomerNo" name="CustomerNo" type="text" disabled />
+**Example HTML snippet** (Bill can adapt to his form):
+```html
+<form>
+  <label>Invoice #:</label>
+  <input id="InvoiceNo" type="text" />
+  <button id="LookupBtn" type="button">Lookup</button>
 
-Field 3:
-  Name:        CustomerName
-  Type:        Text
-  Label:       Customer Name
-  HTML:        <input id="CustomerName" name="CustomerName" type="text" disabled />
+  <label>Customer #:</label>
+  <input id="CustomerNo" type="text" disabled />
 
-Field 4:
-  Name:        OrderDate
-  Type:        Text
-  Label:       Order Date
-  HTML:        <input id="OrderDate" name="OrderDate" type="text" disabled />
+  <label>Customer Name:</label>
+  <input id="CustomerName" type="text" disabled />
 
-Field 5:
-  Name:        ShipDate
-  Type:        Text
-  Label:       Ship Date
-  HTML:        <input id="ShipDate" name="ShipDate" type="text" disabled />
+  <label>Order Date:</label>
+  <input id="OrderDate" type="text" disabled />
 
-Button:
-  Name:        LookupBtn
-  Type:        Button
-  Label:       Lookup
-  HTML:        <button id="LookupBtn">Lookup</button>
+  <label>Ship Date:</label>
+  <input id="ShipDate" type="text" disabled />
 
-⚠️ CRITICAL - Hidden Field (Required):
-  Name:        DatabasePath
-  Type:        Text
-  HTML:        <input id="DatabasePath" type="hidden" value="[your-database.nsf]" />
-  
-  IMPORTANT: Replace [your-database.nsf] with your actual database filename!
-  Example: <input id="DatabasePath" type="hidden" value="orders.nsf" />
-  
-  This field is REQUIRED for the JavaScript URL routing to work correctly.
-  Without it, the form will display an error when Lookup is clicked.
+  <!-- CRITICAL: Must match your database filename -->
+  <input id="DatabasePath" type="hidden" value="orders.nsf" />
+</form>
 ```
 
 ### Step 7: Set Database ACL
