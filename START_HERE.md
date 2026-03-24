@@ -1,6 +1,8 @@
 # Welcome! Start Here 👋
 
-This is a **simple, production-ready** Databricks-Domino integration. Follow the path below.
+This is a **working Databricks-Domino integration pattern**. 
+
+⚠️ **Before you proceed**: Read [HONEST_ASSESSMENT.md](./HONEST_ASSESSMENT.md) (5 min) to understand what's validated and what needs testing.
 
 ---
 

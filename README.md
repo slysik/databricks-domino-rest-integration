@@ -1,6 +1,8 @@
 # Databricks-Domino REST Integration
 
-**A simple, production-ready pattern for querying Databricks from HCL Domino forms**
+**A working pattern for querying Databricks from HCL Domino forms**
+
+⚠️ **Status**: Tested with sample data. Before production use, read [HONEST_ASSESSMENT.md](./HONEST_ASSESSMENT.md)
 
 ---
 
