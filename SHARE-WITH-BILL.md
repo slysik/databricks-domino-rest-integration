@@ -83,6 +83,24 @@ Then download from the UI and share with Bill.
 
 ---
 
+## **⚠️ Important: Query by invoice_no (NOT custno)**
+
+The Java agent queries by **invoice_no** (unique primary key):
+```sql
+SELECT custno, custname, orderdate, shipdate 
+FROM prd_fold.facts.oe_detail 
+WHERE invoice_no = :invoice_no  -- ← Bill's method (returns 1 row)
+```
+
+❌ **DO NOT query by custno** (not unique):
+```sql
+WHERE custno = 'CHEW-SC'  -- Returns 3 rows (not what Bill needs)
+```
+
+**Why?** Bill passes invoice numbers via Ajax, and each invoice should return exactly one order detail.
+
+---
+
 ## **Quick Test: Verify the Data**
 
 After creating the table, run these queries to verify:
@@ -124,9 +142,22 @@ WHERE custname LIKE '%,%';
 | **Row Count** | 20 invoices |
 | **Columns** | 9 (4 core + 5 placeholders) |
 | **Date Range** | 2024-01-05 through 2024-06-25 |
-| **Customers** | 8 unique (CUST001-CUST008) |
+| **Customers** | 8 unique South Carolina pun companies |
 | **Unshipped** | 3 rows with NULL shipdate |
-| **Special Cases** | 1 customer with comma in name ("Smith, Jones & Co.") |
+| **Invoice_no** | Unique primary key (INV-2024-001 through INV-2024-020) |
+
+### **South Carolina Pun Company Names** 🎭
+
+| Custno | Company Name |
+|--------|--------------|
+| **CHEW-SC** | Chew-leston Charms Trading Co |
+| **MYRT-SC** | Myrtle Be Serious Supplies LLC |
+| **LOWC-SC** | Low Country Laughs Logistics |
+| **COLA-SC** | Columbia Cone-gressionals Inc |
+| **GRNV-SC** | Greenville Grins and Wins Group |
+| **HILN-SC** | Hilton Head Quarters Holdings |
+| **PALM-SC** | Palmetto Puns Plus Productions |
+| **SNTE-SC** | Santee Spins and Wins Solutions |
 
 ---
 
