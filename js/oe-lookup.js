@@ -7,10 +7,20 @@
  * 
  * Dependencies: jQuery (loaded in Domino form header)
  * 
+ * ⚠️ CRITICAL REQUIREMENT:
+ *    Your Domino form MUST include this hidden field:
+ *    <input id="DatabasePath" type="hidden" value="[your-database.nsf]" />
+ *    
+ *    Example: <input id="DatabasePath" type="hidden" value="orders.nsf" />
+ *    
+ *    Without this field, the form will fail with:
+ *    "Error: Database path not configured. Contact your administrator."
+ * 
  * Usage:
  *   1. Include this file in your Domino form
- *   2. Bind to invoice field: $("#InvoiceNo").on("change", function() { lookupInvoice($(this).val()); })
- *   3. Or bind to a button: $("#LookupBtn").on("click", function() { lookupInvoice($("#InvoiceNo").val()); })
+ *   2. Add the hidden DatabasePath field (see above)
+ *   3. Bind to invoice field: $("#InvoiceNo").on("change", function() { lookupInvoice($(this).val()); })
+ *   4. Or bind to a button: $("#LookupBtn").on("click", function() { lookupInvoice($("#InvoiceNo").val()); })
  */
 
 (function($) {

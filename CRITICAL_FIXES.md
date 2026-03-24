@@ -5,6 +5,27 @@
 
 ---
 
+## ⚠️ IMPORTANT FOR BILL: Required Form Configuration
+
+**Bill must add this hidden field to his Domino form** for the JavaScript URL routing to work correctly:
+
+```html
+<!-- REQUIRED: Add this to your form HTML -->
+<input id="DatabasePath" type="hidden" value="[your-database.nsf]" />
+```
+
+**Example**:
+```html
+<!-- If Bill's Domino database is "orders.nsf" -->
+<input id="DatabasePath" type="hidden" value="orders.nsf" />
+```
+
+**Why**: Without this field, the JavaScript `getFormDatabasePath()` function will attempt to extract the database name from the URL. If that extraction fails, the form will display: `"Error: Database path not configured. Contact your administrator."`
+
+**Bottom line**: Add the hidden field above, and URL routing will work perfectly for all Domino form patterns.
+
+---
+
 ## Summary
 
 Four critical issues were identified and fixed:

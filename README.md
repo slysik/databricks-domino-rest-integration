@@ -229,6 +229,17 @@ Button:
   Type:        Button
   Label:       Lookup
   HTML:        <button id="LookupBtn">Lookup</button>
+
+⚠️ CRITICAL - Hidden Field (Required):
+  Name:        DatabasePath
+  Type:        Text
+  HTML:        <input id="DatabasePath" type="hidden" value="[your-database.nsf]" />
+  
+  IMPORTANT: Replace [your-database.nsf] with your actual database filename!
+  Example: <input id="DatabasePath" type="hidden" value="orders.nsf" />
+  
+  This field is REQUIRED for the JavaScript URL routing to work correctly.
+  Without it, the form will display an error when Lookup is clicked.
 ```
 
 ### Step 7: Set Database ACL
