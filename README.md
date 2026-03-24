@@ -45,63 +45,37 @@ This integration allows HCL Domino forms to lookup order/invoice details from a 
 
 ## Architecture
 
+### Visual Architecture Diagram
+
+![Domino-Databricks Integration Architecture](./docs/diagrams/bill_domino_databricks_architecture.png)
+
+### Flow Description
+
+**3-Layer Architecture:**
+
+1. **Domino Form Layer** (Left)
+   - User enters invoice number
+   - Clicks "Lookup" button
+   - jQuery initiates Ajax POST
+
+2. **Java Agent Bridge** (Middle)
+   - `OEDetailLookup` reads POST body
+   - Parses invoice parameter
+   - Calls Databricks `/api/2.0/sql/statements` REST API
+   - Quote-aware JSON parsing
+   - Returns delimited result: `custno~*~custname~*~orderdate~*~shipdate`
+
+3. **Databricks Data Layer** (Right)
+   - Table: `prd_gold.facts.oe_detail`
+   - 20 sample invoices with South Carolina pun company names
+   - `invoice_no` is UNIQUE primary key
+   - One query → One row guaranteed
+
+**Complete Flow:**
 ```
-┌──────────────────────────────────┐
-│   Domino Form (Browser)          │
-│  ┌────────────────────────────┐  │
-│  │  Invoice #: [INV-2024-001] │  │
-│  │  Customer:  [_____________]│  │
-│  │  Order Dt:  [_____________]│  │
-│  │  Ship Dt:   [_____________]│  │
-│  │  [Lookup]                  │  │
-│  └────────────────────────────┘  │
-└──────────────┬───────────────────┘
-               │
-               │ oe-lookup.js
-               │ Ajax POST: invoice=INV-2024-001
-               │
-               ▼
-┌──────────────────────────────────┐
-│   Domino Java Agent              │
-│   OEDetailLookup                 │
-│                                  │
-│  1. Read Request_Content         │
-│  2. Parse invoice parameter      │
-│  3. Read DATABRICKS_* from env   │
-│  4. Call REST API                │
-│  5. Parse JSON response          │
-│  6. Return: custno~*~custname... │
-└──────────────┬───────────────────┘
-               │
-               │ HTTPS POST
-               │ /api/2.0/sql/statements
-               │ Bearer <PAT>
-               │
-               ▼
-┌──────────────────────────────────┐
-│   Databricks REST API            │
-│                                  │
-│  SQL: SELECT custno, custname... │
-│  FROM prd_gold.facts.oe_detail   │
-│  WHERE invoice_no = :invoice_no  │
-│                                  │
-│  Response: JSON with data_array  │
-└──────────────┬───────────────────┘
-               │
-               │ JSON response
-               │ status.state = SUCCEEDED
-               │ result.data_array = [[...]]
-               │
-               ▼
-┌──────────────────────────────────┐
-│   Domino Form (updated)          │
-│  ┌────────────────────────────┐  │
-│  │  Invoice #: INV-2024-001   │  │
-│  │  Customer:  Acme Corp      │  │
-│  │  Order Dt:  01/05/2024     │  │
-│  │  Ship Dt:   01/10/2024     │  │
-│  └────────────────────────────┘  │
-└──────────────────────────────────┘
+Invoice # (Domino) → Ajax POST → Java Agent → REST API → Databricks
+                                                              ↓
+Form Fields ← JavaScript Parse ← JSON Response ← SQL Result
 ```
 
 ---
