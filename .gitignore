@@ -1,0 +1,56 @@
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+*.sublime-project
+*.sublime-workspace
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+env/
+venv/
+.env
+.env.local
+
+# Java
+*.class
+*.jar
+*.war
+target/
+build/
+.gradle/
+*.iml
+
+# Node
+node_modules/
+npm-debug.log
+package-lock.json
+
+# OS
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Domino
+*.nsf
+*.ntf
+lotus.properties
+
+# Databricks
+.databricks
+*.dbc
+
+# Misc
+.tmp/
+tmp/
+*.bak
