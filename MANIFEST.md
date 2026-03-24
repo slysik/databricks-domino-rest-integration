@@ -46,7 +46,7 @@
 - **Lines**: 145
 - **Purpose**: Table DDL and sample data
 - **Features**:
-  - Table: prd_fold.facts.oe_detail
+  - Table: prd_gold.facts.oe_detail
   - 20 individual INSERT statements (one per row)
   - 4 core columns: invoice_no, custno, custname, orderdate, shipdate
   - 5 placeholder columns: ponumber, shipvia, totalamt, orderstatus
@@ -54,7 +54,7 @@
     - Invoices: INV-2024-001 through INV-2024-020
     - Customers: 8 unique (CUST001-CUST008)
     - Dates: 2024-01-05 through 2024-06-25
-    - **Comma in name**: "Smith, Jones & Co." (JSON parsing test)
+    - **8 unique companies**: South Carolina pun company names for testing
     - **NULL shipdates**: 3 rows with NULL shipdate (nullable test)
     - DECIMAL(38,2) for monetary amounts
 

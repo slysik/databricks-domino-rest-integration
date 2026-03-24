@@ -103,7 +103,7 @@ ESCAPED_INVOICE=$(echo "$INVOICE_NO" | sed 's/\\/\\\\/g' | sed 's/"/\\"/g')
 
 REQUEST_JSON="{
   \"warehouse_id\": \"$WAREHOUSE_ID\",
-  \"statement\": \"SELECT custno, custname, orderdate, shipdate FROM prd_fold.facts.oe_detail WHERE invoice_no = :invoice_no\",
+  \"statement\": \"SELECT custno, custname, orderdate, shipdate FROM prd_gold.facts.oe_detail WHERE invoice_no = :invoice_no\",
   \"parameters\": [
     {\"name\": \"invoice_no\", \"value\": \"$ESCAPED_INVOICE\", \"type\": \"STRING\"}
   ],

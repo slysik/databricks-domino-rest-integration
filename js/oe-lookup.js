@@ -226,22 +226,35 @@
    * Returns the database path for the current Domino form
    * Extracts from the form's parent database URL
    * 
+   * ⚠️ CRITICAL: Must set a hidden field with database path in your form!
+   * 
    * @returns {string} Database path (e.g., "mydb.nsf")
    */
   function getFormDatabasePath() {
-    // Get the database path from the current Domino form
-    // This is typically available via a hidden field or Domino context variable
-    // Common approach: look for a hidden field set by Domino
+    // REQUIRED: Form must have a hidden field with database path
+    // This field should be populated by Domino (via @DbName or similar)
     var dbPath = $("#DatabasePath").val();
     
-    if (!dbPath) {
-      // Fallback: extract from current document.location
-      // Example: https://domino.example.com/keep/open/mydb.nsf
-      var pathParts = window.location.pathname.split("/");
-      dbPath = pathParts[pathParts.length - 1];
+    if (!dbPath || dbPath.trim() === "") {
+      // Fallback 2: Try to extract .nsf file from URL path
+      // URL pattern: /mydb.nsf/Form/DocumentID or /folder/mydb.nsf
+      var pathname = window.location.pathname;
+      
+      // Find .nsf in the path
+      var nsfMatch = pathname.match(/([^\/]+\.nsf)/);
+      if (nsfMatch) {
+        dbPath = nsfMatch[1];
+      }
     }
 
-    return dbPath || "database.nsf";
+    if (!dbPath || dbPath.trim() === "") {
+      // Last resort: user must manually configure
+      console.error("DatabasePath not found. Domino form must include hidden field: <input id='DatabasePath' value='[database.nsf]' />");
+      alert("Error: Database path not configured. Contact your administrator.");
+      throw new Error("DatabasePath field not set in form");
+    }
+
+    return dbPath;
   }
 
   /**

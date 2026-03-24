@@ -110,7 +110,7 @@ This document explains the architectural choices and design patterns used in the
 
 ### 3. Data Source: Databricks Table
 
-**Schema**: `prd_fold.facts.oe_detail`
+**Schema**: `prd_gold.facts.oe_detail`
 
 **Columns**:
 - `invoice_no` (STRING, PRIMARY KEY) — Lookup key
@@ -129,7 +129,7 @@ This document explains the architectural choices and design patterns used in the
 **Sample data**: 20 invoices
 - Customers: CUST001-CUST008 (some repeat)
 - Dates: 2024-01-05 through 2024-06-25
-- Names include comma ("Smith, Jones & Co.") for JSON parsing tests
+- South Carolina pun company names (Chew-leston Charms, Myrtle Be Serious, etc.)
 - 3 NULL shipdates (tests nullable column handling)
 
 ---
@@ -175,7 +175,7 @@ This document explains the architectural choices and design patterns used in the
 }
 ```
 
-- Quotes in values: `"Smith, Jones & Co."` (tested in sample data)
+- Real-world company names with hyphens and special characters tested
 - Null values: `null` (unquoted, handled by `sanitizeValue()`)
 - Multiple rows: Only first row used (noted in code)
 

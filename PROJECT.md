@@ -102,7 +102,7 @@ export WAREHOUSE_ID=...
 
 Before deployment:
 
-- [ ] Databricks table created: `prd_fold.facts.oe_detail`
+- [ ] Databricks table created: `prd_gold.facts.oe_detail`
 - [ ] Warehouse ID collected: `4bbaafe9538467a0`
 - [ ] PAT generated: `dapi...`
 - [ ] Domino environment document created with 3 fields
@@ -120,7 +120,7 @@ Before deployment:
 ### Sample Dataset
 
 ```
-Table:    prd_fold.facts.oe_detail
+Table:    prd_gold.facts.oe_detail
 Rows:     20
 Columns:  9 (4 core + 5 placeholders)
 Date Range: 2024-01-05 through 2024-06-25
@@ -132,9 +132,9 @@ Unshipped: 3 rows with NULL shipdate
 
 | Invoice | Customer Name | Order Date | Ship Date | Notes |
 |---------|--------------|------------|-----------|-------|
-| INV-2024-001 | Acme Corporation | 2024-01-05 | 2024-01-10 | Standard shipped |
-| INV-2024-003 | Smith, Jones & Co. | 2024-01-15 | 2024-01-22 | **Comma in name** (JSON test) |
-| INV-2024-004 | Acme Corporation | 2024-01-25 | NULL | **Unshipped** (nullable test) |
+| INV-2024-001 | Chew-leston Charms Trading Co | 2024-01-05 | 2024-01-10 | Standard shipped |
+| INV-2024-003 | Low Country Laughs Logistics | 2024-01-15 | 2024-01-22 | SC pun company |
+| INV-2024-004 | Chew-leston Charms Trading Co | 2024-01-25 | NULL | **Unshipped** (nullable test) |
 
 ---
 

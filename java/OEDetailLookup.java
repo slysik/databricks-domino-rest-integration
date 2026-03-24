@@ -160,8 +160,20 @@ public class OEDetailLookup extends AgentBase {
         return;
       }
 
-      // ========== CHECK QUERY STATE ==========
+      // ========== POLL QUERY STATE (Handle Async) ==========
       String state = extractFieldValue(responseBody, "\"state\"");
+      String statementId = extractFieldValue(responseBody, "\"statement_id\"");
+      
+      // If statement is not immediately done, poll for completion
+      if (state != null && (state.equals("PENDING") || state.equals("RUNNING"))) {
+        responseBody = pollStatementStatus(statementId, connection, databricksHost, databricksToken, warehouseId, writer);
+        if (responseBody == null) {
+          // Error already written by pollStatementStatus
+          return;
+        }
+        state = extractFieldValue(responseBody, "\"state\"");
+      }
+      
       if (state == null || !state.equals("SUCCEEDED")) {
         writer.println("ERROR" + DELIMITER + "Databricks query state: " + (state != null ? state : "UNKNOWN"));
         return;
@@ -189,9 +201,13 @@ public class OEDetailLookup extends AgentBase {
       String result = values[0] + DELIMITER + values[1] + DELIMITER + values[2] + DELIMITER + values[3];
       writer.println(result);
 
-    } catch (SocketTimeoutException e) {
+    } catch (java.net.SocketTimeoutException e) {
       if (writer != null) {
         writer.println("ERROR" + DELIMITER + "Connection to Databricks timed out");
+      }
+    } catch (java.io.IOException e) {
+      if (writer != null) {
+        writer.println("ERROR" + DELIMITER + "Network error: " + e.getMessage());
       }
     } catch (Exception e) {
       if (writer != null) {
@@ -493,10 +509,74 @@ public class OEDetailLookup extends AgentBase {
     return "Unknown error";
   }
 
-  // Inner class for timeout exception handling
-  class SocketTimeoutException extends java.net.SocketTimeoutException {
-    public SocketTimeoutException(String msg) {
-      super(msg);
+  /**
+   * Polls the statement status until completion or timeout
+   * Handles PENDING/RUNNING states with exponential backoff
+   * 
+   * @param statementId Statement ID from initial request
+   * @param connection Reusable connection (will be closed and recreated)
+   * @param host Databricks host
+   * @param token Bearer token
+   * @param warehouseId Warehouse ID
+   * @param writer Output writer for errors
+   * @return Response body when SUCCEEDED/FAILED, or null on error
+   */
+  private String pollStatementStatus(String statementId, HttpURLConnection connection, 
+                                     String host, String token, String warehouseId, 
+                                     PrintWriter writer) {
+    long pollStartTime = System.currentTimeMillis();
+    long maxPollTime = 60000;  // 60 seconds max polling
+    int pollAttempt = 0;
+    int backoffMs = 500;  // Start with 500ms, exponential backoff
+
+    while (System.currentTimeMillis() - pollStartTime < maxPollTime) {
+      try {
+        // Wait before polling (exponential backoff: 500ms, 1s, 2s, 4s, etc.)
+        Thread.sleep(Math.min(backoffMs, 10000));  // Cap at 10 seconds
+        backoffMs = Math.min(backoffMs * 2, 10000);
+        pollAttempt++;
+
+        // Build GET request for statement status
+        String getUrl = "https://" + host + "/api/2.0/sql/statements/" + statementId;
+        URL url = new URL(getUrl);
+        HttpURLConnection pollConnection = (HttpURLConnection) url.openConnection();
+
+        pollConnection.setRequestMethod("GET");
+        pollConnection.setConnectTimeout(CONNECT_TIMEOUT_MS);
+        pollConnection.setReadTimeout(READ_TIMEOUT_MS);
+        pollConnection.setRequestProperty("Authorization", "Bearer " + token);
+
+        int httpCode = pollConnection.getResponseCode();
+        if (httpCode != 200) {
+          pollConnection.disconnect();
+          continue;  // Retry on HTTP error
+        }
+
+        InputStream pollInputStream = pollConnection.getInputStream();
+        String statusResponse = readStreamAsString(pollInputStream);
+        pollInputStream.close();
+        pollConnection.disconnect();
+
+        // Check state in response
+        String state = extractFieldValue(statusResponse, "\"state\"");
+        if (state != null && (state.equals("SUCCEEDED") || state.equals("FAILED"))) {
+          return statusResponse;
+        }
+
+        // Still pending, loop and retry
+
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        writer.println("ERROR" + DELIMITER + "Poll interrupted");
+        return null;
+      } catch (Exception e) {
+        // Log but continue polling
+        continue;
+      }
     }
+
+    // Polling timeout
+    writer.println("ERROR" + DELIMITER + "Databricks query execution timeout (60s)");
+    return null;
   }
 }
