@@ -1,6 +1,23 @@
 # How to Share Sample Data with Bill
 
-**Bill** — Here are 3 ways to get the sample data into your Databricks workspace for testing the Domino-Databricks integration:
+**Bill** — This guide shows you how to load the 20 sample invoices into your Databricks workspace (takes 2 minutes).
+
+---
+
+## **⚠️ IMPORTANT: Before You Start**
+
+The Java agent queries by **`invoice_no`** (unique primary key):
+```sql
+SELECT custno, custname, orderdate, shipdate 
+FROM prd_gold.facts.oe_detail 
+WHERE invoice_no = :invoice_no  -- Your invoice number → 1 row returned
+```
+
+This is exactly what Bill's Domino form will do. Each invoice number returns exactly one row.
+
+---
+
+## **Quick Setup (2 Minutes)**
 
 ---
 
@@ -9,190 +26,113 @@
 **Time**: 2 minutes  
 **Steps**:
 
-1. Open your Databricks workspace: https://dbc-[yours].cloud.databricks.com
-2. Click **SQL** → **SQL Editor**
-3. Copy the entire contents of this file:
-   ```
-   https://raw.githubusercontent.com/slysik/databricks-domino-rest-integration/blob/main/sql/create_oe_detail.sql
-   ```
-4. Or copy from local repo:
-   ```bash
-   cat sql/create_oe_detail.sql
-   ```
-5. Paste into SQL editor
-6. Click **Run** → Done! Table created with 20 invoices
+1. **Open Databricks SQL Editor**
+   - Go to: https://[your-workspace].cloud.databricks.com/sql/editor
 
-**Verify**:
+2. **Copy the SQL script**
+   - GitHub (direct link): https://raw.githubusercontent.com/slysik/databricks-domino-rest-integration/main/sql/create_oe_detail.sql
+   - Or clone the repo locally and run: `cat sql/create_oe_detail.sql`
+
+3. **Paste into SQL Editor**
+   - Select all the SQL text
+   - Paste into the SQL editor window
+
+4. **Run the script**
+   - Click the **Run** button (or Cmd+Enter)
+   - Wait 5-10 seconds for completion
+
+5. **Done!**
+   - Table `prd_gold.facts.oe_detail` is created with 20 invoices
+   - All data is ready to test
+
+**Quick Verification** (copy-paste one at a time):
 ```sql
+-- 1. Check row count
 SELECT COUNT(*) as row_count FROM prd_gold.facts.oe_detail;
--- Should return: 20
-```
-
-**Advantages**:
-- ✅ Simplest (copy-paste)
-- ✅ No setup needed
-- ✅ You control the data location/permissions
-- ✅ Easy to regenerate
-
----
-
-## **Option 2: Use the Python Export Script**
-
-**Time**: 5 minutes  
-**For**: If you want to clone the exact data format
-
-1. In your Databricks workspace, create a new **Notebook**
-2. Copy the entire contents of:
-   ```
-   https://raw.githubusercontent.com/slysik/databricks-domino-rest-integration/main/scripts/export-sample-data.py
-   ```
-3. Paste into the notebook
-4. Run the cell → Table `prd_gold.facts.oe_detail` is created
-
-**Verify**:
-```sql
-SELECT * FROM prd_gold.facts.oe_detail LIMIT 5;
-```
-
-**Advantages**:
-- ✅ Programmatic (easy to modify)
-- ✅ Exact schema matching
-- ✅ Reproducible
-
----
-
-## **Option 3: Get a CSV/Parquet Export (If Sharing Across Workspaces)**
-
-**Time**: 10 minutes  
-**For**: If you want to export data to share with others
-
-From your Databricks workspace:
-
-```python
-# In a notebook cell, run this:
-df = spark.read.table("prd_gold.facts.oe_detail")
-
-# Export as CSV
-df.write.mode("overwrite").csv("/Volumes/[catalog]/[volume]/oe_detail_export.csv", header=True)
-
-# Or export as Parquet
-df.write.mode("overwrite").parquet("/Volumes/[catalog]/[volume]/oe_detail_export.parquet")
-```
-
-Then download from the UI and share with Bill.
-
----
-
-## **⚠️ Important: Query by invoice_no (NOT custno)**
-
-The Java agent queries by **invoice_no** (unique primary key):
-```sql
-SELECT custno, custname, orderdate, shipdate 
-FROM prd_gold.facts.oe_detail 
-WHERE invoice_no = :invoice_no  -- ← Bill's method (returns 1 row)
-```
-
-❌ **DO NOT query by custno** (not unique):
-```sql
-WHERE custno = 'CHEW-SC'  -- Returns 3 rows (not what Bill needs)
-```
-
-**Why?** Bill passes invoice numbers via Ajax, and each invoice should return exactly one order detail.
-
----
-
-## **Quick Test: Verify the Data**
-
-After creating the table, run these queries to verify:
-
-```sql
--- Verify row count
-SELECT COUNT(*) as total_rows FROM prd_gold.facts.oe_detail;
 -- Expected: 20
 
--- Show sample records
-SELECT * FROM prd_gold.facts.oe_detail LIMIT 5;
-
--- Test the lookup (what the Domino agent will query)
+-- 2. Test the actual lookup query (what Bill's Java agent will use)
 SELECT custno, custname, orderdate, shipdate 
 FROM prd_gold.facts.oe_detail 
 WHERE invoice_no = 'INV-2024-001';
--- Expected: CUST001, Acme Corporation, 2024-01-05, 2024-01-10
+-- Expected: CHEW-SC | Chew-leston Charms Trading Co | 2024-01-05 | 2024-01-10
+```
 
--- Test NULL handling (unshipped orders)
-SELECT invoice_no, custname, shipdate 
-FROM prd_gold.facts.oe_detail 
-WHERE shipdate IS NULL;
--- Expected: 3 rows (INV-2024-004, INV-2024-009, INV-2024-020)
+**Advantages**:
+- ✅ **Simplest** — just copy & paste SQL
+- ✅ **Fastest** — 2 minutes total
+- ✅ **No dependencies** — no Python, no notebooks
+- ✅ **You control everything** — data location, permissions
+- ✅ **Easy to regenerate** — just run the SQL again if needed
 
--- Test comma in name (JSON parsing test)
-SELECT invoice_no, custname 
-FROM prd_gold.facts.oe_detail 
-WHERE custname LIKE '%,%';
--- Expected: 3 rows with "Smith, Jones & Co."
+---
+
+## **Alternative Options**
+
+### **Option 2: Use Python (if you prefer)**
+1. Create a new notebook in Databricks
+2. Run the script from: `scripts/export-sample-data.py`
+3. Done!
+
+### **Option 3: Export for Sharing**
+If you need to share the data across workspaces, export as CSV/Parquet from the notebook.
+
+
+
+---
+
+## **What You Get (20 Sample Invoices)**
+
+| Property | Details |
+|----------|---------|
+| **Table** | `prd_gold.facts.oe_detail` |
+| **Rows** | 20 invoices (INV-2024-001 through INV-2024-020) |
+| **Columns** | invoice_no, custno, custname, orderdate, shipdate (+ 4 placeholders) |
+| **Companies** | 8 unique South Carolina pun companies (Bill will love!) |
+| **Special** | 3 unshipped orders (NULL shipdate), authentic company names with commas |
+
+**Sample invoice to test with:**
+```
+Invoice: INV-2024-001
+Customer: Chew-leston Charms Trading Co
+Order Date: 2024-01-05
+Ship Date: 2024-01-10
 ```
 
 ---
 
-## **Sample Data Overview**
-
-| Characteristic | Details |
-|---|---|
-| **Table Name** | `prd_gold.facts.oe_detail` |
-| **Row Count** | 20 invoices |
-| **Columns** | 9 (4 core + 5 placeholders) |
-| **Date Range** | 2024-01-05 through 2024-06-25 |
-| **Customers** | 8 unique South Carolina pun companies |
-| **Unshipped** | 3 rows with NULL shipdate |
-| **Invoice_no** | Unique primary key (INV-2024-001 through INV-2024-020) |
-
-### **South Carolina Pun Company Names** 🎭
-
-| Custno | Company Name |
-|--------|--------------|
-| **CHEW-SC** | Chew-leston Charms Trading Co |
-| **MYRT-SC** | Myrtle Be Serious Supplies LLC |
-| **LOWC-SC** | Low Country Laughs Logistics |
-| **COLA-SC** | Columbia Cone-gressionals Inc |
-| **GRNV-SC** | Greenville Grins and Wins Group |
-| **HILN-SC** | Hilton Head Quarters Holdings |
-| **PALM-SC** | Palmetto Puns Plus Productions |
-| **SNTE-SC** | Santee Spins and Wins Solutions |
-
 ---
 
-## **After Getting the Data: Next Steps**
+## **Next: Configure Your Domino Agent**
 
-1. **Configure Domino environment document** with your Databricks credentials:
-   - `DATABRICKS_HOST`: Your workspace host
-   - `DATABRICKS_TOKEN`: Your PAT
+Once the table is created, you're ready to:
+
+1. **Set up the Domino environment document** with 3 values:
+   - `DATABRICKS_HOST`: Your workspace hostname (e.g., `dbc-xxxxx.cloud.databricks.com`)
+   - `DATABRICKS_TOKEN`: Your Databricks PAT
    - `WAREHOUSE_ID`: Your SQL warehouse ID
 
-2. **Test the Domino agent** with a sample invoice:
-   ```
-   Invoice: INV-2024-001
-   Expected customer: Acme Corporation
-   ```
+2. **Test the integration**:
+   - Deploy the Java agent to your Domino database
+   - Add the JavaScript to your form
+   - Enter invoice `INV-2024-001` and click Lookup
+   - Expected result: Shows customer "Chew-leston Charms Trading Co"
 
-3. **Test the JavaScript** form lookup
-
-4. **Reference the README** for troubleshooting:
-   https://github.com/slysik/databricks-domino-rest-integration#readme
-
----
-
-## **Questions or Issues?**
-
-- ❓ **SQL errors**: Check catalog/schema names match your workspace
-- ❓ **Missing warehouse**: Verify warehouse ID and that it's running
-- ❓ **Permission issues**: Verify you have UC CREATE TABLE permissions
-- ❓ **Need to modify**: All 20 rows are in `sql/create_oe_detail.sql` — easy to edit
+3. **Reference the full README**:
+   - Installation guide: https://github.com/slysik/databricks-domino-rest-integration#installation
+   - Troubleshooting: https://github.com/slysik/databricks-domino-rest-integration#troubleshooting
 
 ---
 
-**Recommended Order**:
-1. **First**: Run Option 1 (SQL script) — simplest
-2. **Then**: Test Domino agent with INV-2024-001
-3. **Finally**: Extend with new fields if needed
+## **If You Run Into Issues**
 
-Good luck! 🚀
+| Problem | Check | Solution |
+|---------|-------|----------|
+| SQL errors | Catalog/schema names | Table should be: `prd_gold.facts.oe_detail` |
+| Warehouse error | Warehouse status | Start your SQL warehouse; get ID from workspace UI |
+| Permission denied | UC permissions | Verify you can create tables in your catalog |
+| Want to regenerate | Sample data | Delete the table and re-run the SQL script |
+
+---
+
+**You're all set!** Table is ready for Bill's Domino agent. 🚀
