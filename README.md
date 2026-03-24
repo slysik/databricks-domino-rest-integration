@@ -263,15 +263,38 @@ The Java agent and form must have proper permissions:
 
 ### Connection Timeouts
 
-In `OEDetailLookup.java`, adjust if needed:
+**Important**: Timeouts are configured to work together as an end-to-end budget:
+
+```
+Browser AJAX timeout:        100 seconds
+Backend read timeout:         35 seconds
+Backend polling timeout:      60 seconds (PENDING/RUNNING states)
+Total backend budget:         95 seconds (35s + 60s)
+```
+
+**Why 100 seconds in browser?**
+- Gives backend maximum time to complete (35s read + 60s polling)
+- Plus 5 second buffer for network latency
+- If query takes > 95s, user will see timeout (as expected for very slow queries)
+
+**Adjusting timeouts** in `OEDetailLookup.java`:
 
 ```java
 private static final int CONNECT_TIMEOUT_MS = 10000;  // 10 seconds
-private static final int READ_TIMEOUT_MS = 35000;     // 35 seconds
+private static final int READ_TIMEOUT_MS = 35000;     // 35 seconds (initial statement execution)
+// Plus up to 60 seconds of polling in pollStatementStatus()
 ```
 
-- **CONNECT_TIMEOUT**: Time to establish connection (increase if warehouse is cold-starting)
-- **READ_TIMEOUT**: Time to wait for query results (increase for large result sets)
+And in `js/oe-lookup.js`:
+
+```javascript
+timeout: 100000,  // 100 seconds — must be >= backend timeout
+```
+
+**Rules**:
+- Browser timeout must be ≥ backend max time (read + polling)
+- If cold warehouse is slow, increase backend timeouts
+- If increasing backend timeouts, also increase browser timeout
 
 ### SQL Query
 

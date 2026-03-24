@@ -188,6 +188,13 @@ public class OEDetailLookup extends AgentBase {
         return;
       }
 
+      // ========== VERIFY EXACTLY ONE ROW (invoice_no must be unique) ==========
+      int rowCount = countRows(dataArray);
+      if (rowCount != 1) {
+        writer.println("ERROR" + DELIMITER + "Expected 1 row for invoice_no=" + invoiceNo + ", got " + rowCount + ". Verify invoice_no uniqueness in Databricks table.");
+        return;
+      }
+
       // ========== PARSE DATA ARRAY WITH QUOTE-AWARE EXTRACTION ==========
       String[] values = parseDataArrayValues(dataArray);
 
@@ -258,7 +265,7 @@ public class OEDetailLookup extends AgentBase {
 
   /**
    * Extracts a JSON field value from response body
-   * Finds "fieldname": and reads until closing quote
+   * Finds "fieldname": and reads until closing quote (escape-aware)
    * 
    * @param json JSON response body
    * @param fieldName Field name including quotes (e.g., "\"state\"")
@@ -278,12 +285,41 @@ public class OEDetailLookup extends AgentBase {
       startIndex++;
     }
 
-    // Handle quoted string values
+    // Handle quoted string values (escape-aware)
     if (startIndex < json.length() && json.charAt(startIndex) == '"') {
       startIndex++;  // Skip opening quote
-      int endIndex = json.indexOf("\"", startIndex);
-      if (endIndex == -1) return null;
-      return json.substring(startIndex, endIndex);
+      StringBuilder value = new StringBuilder();
+      int i = startIndex;
+      boolean inEscape = false;
+      
+      while (i < json.length()) {
+        char c = json.charAt(i);
+        
+        if (inEscape) {
+          // If previous char was backslash, this char is escaped
+          value.append(c);
+          inEscape = false;
+          i++;
+          continue;
+        }
+        
+        if (c == '\\') {
+          // Mark next character as escaped
+          inEscape = true;
+          i++;
+          continue;
+        }
+        
+        if (c == '"') {
+          // Found closing quote (not escaped)
+          return value.toString();
+        }
+        
+        value.append(c);
+        i++;
+      }
+      
+      return null;  // No closing quote found
     }
 
     // Handle unquoted values (null, true, false, numbers)
@@ -298,6 +334,42 @@ public class OEDetailLookup extends AgentBase {
     }
 
     return null;
+  }
+
+  /**
+   * Counts the number of rows in a data array
+   * Counts opening brackets at depth 1 to determine row count
+   * 
+   * @param dataArray Data array string: [[...], [...], ...]
+   * @return Number of rows in array
+   */
+  private int countRows(String dataArray) {
+    if (dataArray == null || dataArray.length() < 2) {
+      return 0;
+    }
+
+    // Remove outer brackets: [[...]] -> [...]
+    if (!dataArray.startsWith("[[")) {
+      return 0;
+    }
+
+    int rowCount = 0;
+    int bracketDepth = 0;
+
+    for (int i = 1; i < dataArray.length() - 1; i++) {  // Skip outer brackets
+      char c = dataArray.charAt(i);
+
+      if (c == '[') {
+        bracketDepth++;
+        if (bracketDepth == 1) {
+          rowCount++;  // Found start of new row
+        }
+      } else if (c == ']') {
+        bracketDepth--;
+      }
+    }
+
+    return rowCount;
   }
 
   /**

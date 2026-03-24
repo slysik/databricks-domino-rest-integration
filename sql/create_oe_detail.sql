@@ -16,7 +16,7 @@
 
 -- Create the table
 CREATE TABLE IF NOT EXISTS prd_gold.facts.oe_detail (
-    invoice_no       STRING          NOT NULL COMMENT 'Invoice number (primary lookup key)',
+    invoice_no       STRING          NOT NULL PRIMARY KEY COMMENT 'Invoice number (unique primary lookup key)',
     custno           STRING          NOT NULL COMMENT 'Customer number',
     custname         STRING          NOT NULL COMMENT 'Customer name',
     orderdate        DATE            NOT NULL COMMENT 'Order placed date',

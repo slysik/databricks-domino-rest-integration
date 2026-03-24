@@ -93,13 +93,24 @@
     clearFormFields();
 
     // ========== AJAX CALL TO JAVA AGENT ==========
+    // ========== BUILD URL FIRST, VALIDATE BEFORE AJAX ==========
+    var ajaxUrl;
+    try {
+      ajaxUrl = "/" + getFormDatabasePath() + "/OEDetailLookup?OpenAgent";
+    } catch (urlError) {
+      // If URL building fails, restore UI before returning
+      $lookupBtn.prop("disabled", false).text("Lookup");
+      $invoiceField.prop("disabled", false);
+      return;  // Error already shown by getFormDatabasePath()
+    }
+
     $.ajax({
-      url: "/" + getFormDatabasePath() + "/OEDetailLookup?OpenAgent",
+      url: ajaxUrl,
       method: "POST",
       contentType: "application/x-www-form-urlencoded",
       data: "invoice=" + encodeURIComponent(invoiceNo),
       dataType: "text",
-      timeout: 30000,  // 30 second timeout
+      timeout: 100000,  // 100 seconds (backend: 35s read + 60s polling + 5s buffer)
 
       // ========== SUCCESS: PARSE RESPONSE ==========
       success: function(response) {
