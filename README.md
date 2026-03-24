@@ -685,6 +685,57 @@ SELECT custno, custname, orderdate, shipdate FROM prd_gold.facts.oe_detail WHERE
 
 ---
 
+## Production Deployment Checklist
+
+Before deploying to production, verify all items below:
+
+### Databricks Setup
+- [ ] Table created: `SELECT COUNT(*) FROM prd_gold.facts.oe_detail;` → expect 20
+- [ ] SQL warehouse started and running
+- [ ] Warehouse auto-resume enabled in settings
+- [ ] PAT generated with SQL API permissions
+- [ ] Test query works: `SELECT * FROM prd_gold.facts.oe_detail WHERE invoice_no = 'INV-2024-001';`
+- [ ] Databricks audit logging enabled (optional but recommended)
+
+### Domino Configuration
+- [ ] Environment document created with 3 fields:
+  - `DATABRICKS_HOST`: Workspace hostname
+  - `DATABRICKS_TOKEN`: PAT (Password type field recommended)
+  - `WAREHOUSE_ID`: SQL warehouse ID
+- [ ] Java agent `OEDetailLookup` imported and compiled
+- [ ] JavaScript `oe-lookup.js` added to form
+- [ ] Form fields created: `InvoiceNo`, `CustomerNo`, `CustomerName`, `OrderDate`, `ShipDate`, `LookupBtn`
+- [ ] Database ACL configured (allow Editor or Manager access)
+- [ ] Agent execution rights tested (call from form successfully)
+
+### Testing Before Go-Live
+- [ ] Test with `INV-2024-001` → should return "Chew-leston Charms Trading Co"
+- [ ] Test with `INV-2024-004` → should show NULL shipdate (unshipped order)
+- [ ] Test error case: invalid invoice → should show "No invoice found" message
+- [ ] Test timeout handling: disable warehouse, verify timeout error displayed
+- [ ] Test with multiple concurrent users (if high volume expected)
+
+### Post-Deployment
+- [ ] Monitor Domino console for errors in first week
+- [ ] Check Databricks audit logs for unexpected queries
+- [ ] Document any customizations made to the form
+- [ ] Create backup of environment document configuration
+- [ ] Set PAT rotation reminder (annually)
+- [ ] Document support process for users (who to contact if lookup fails)
+
+### Performance Tuning (Optional)
+- [ ] If warehouse cold-starts are slow, increase `READ_TIMEOUT_MS` to 60000
+- [ ] If high concurrency (100+ concurrent users), verify warehouse size
+- [ ] Monitor query execution time in Databricks SQL editor
+
+### Monitoring & Alerts (Recommended)
+- [ ] Set up Domino agent error logging to syslog/monitoring tool
+- [ ] Create Databricks alert if `prd_gold.facts.oe_detail` row count changes unexpectedly
+- [ ] Monitor Databricks SQL warehouse costs in workspace settings
+- [ ] Set PAT expiration reminder in calendar
+
+---
+
 ## Testing
 
 ### Test 1: Databricks Connectivity
